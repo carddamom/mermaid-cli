@@ -15,6 +15,20 @@ need() {
   command -v "$1" >/dev/null 2>&1 || die "Required tool '$1' not found. Please install it and try again."
 }
 
+# Print why a browser is required and how to proceed, then exit.
+# $1 = reason automatic installation was not possible
+browser_required() {
+  echo ""
+  echo "  mmd-cli requires Chrome or Chromium to render diagrams."
+  echo "  $1"
+  echo ""
+  echo "  Please install one of the following, then run this installer again:"
+  echo "    Google Chrome  - https://www.google.com/chrome/"
+  echo "    Chromium       - https://www.chromium.org/getting-involved/download-chromium/"
+  echo ""
+  die "Chrome or Chromium is required. Install one and re-run this script."
+}
+
 # ── Detect OS and architecture ───────────────────────────────────────────────
 
 detect_platform() {
@@ -81,20 +95,15 @@ ensure_chrome() {
         info "Installing Chromium via yum..."
         sudo yum install -y chromium
       else
-        die "Could not detect a supported package manager. Please install Chrome or Chromium manually."
+        browser_required "No supported package manager (apt/dnf/yum) was found to install one automatically."
       fi
       ;;
     macos)
       if command -v brew >/dev/null 2>&1; then
-        info "Installing Chromium via Homebrew..."
-        brew install --cask chromium
+        info "Installing Google Chrome via Homebrew..."
+        brew install --cask google-chrome
       else
-        echo ""
-        echo "  Please install Chrome or Chromium manually:"
-        echo "    Google Chrome  - https://www.google.com/chrome/"
-        echo "    Chromium       - https://www.chromium.org/getting-involved/download-chromium/"
-        echo ""
-        die "No supported installation method found for Chrome/Chromium on macOS."
+        browser_required "Homebrew is not available to install one automatically."
       fi
       ;;
   esac
@@ -119,7 +128,7 @@ get_version() {
   info "Fetching latest release version..."
   VERSION=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" \
     | grep '"tag_name"' \
-    | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
+    | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/')
 
   [ -n "$VERSION" ] || die "Could not determine latest version. Check https://github.com/${REPO}/releases"
 
@@ -217,4 +226,7 @@ main() {
   info "Done!"
 }
 
-main "$@"
+# Skip execution when sourced for testing (see test/install_test.sh)
+if [ -z "${INSTALL_SH_TEST:-}" ]; then
+  main "$@"
+fi
